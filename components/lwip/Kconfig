@@ -11,6 +11,7 @@ config LWIP_HIGH_THROUGHPUT
     select TCP_HIGH_SPEED_RETRANSMISSION
     select SOC_FULL_ICACHE
     select WIFI_TX_RATE_SEQUENCE_FROM_HIGH
+    select HEAP_DISABLE_IRAM
     help
         Enable this option, also enable "TCP_QUEUE_OOSEQ", "TCP_HIGH_SPEED_RETRANSMISSION" and
         "SOC_FULL_ICACHE", so lwip should cache TCP message received in disorder sequence and
@@ -44,6 +45,23 @@ config LWIP_ARP_MAXAGE
     int "The time an ARP entry stays valid after its last update"
     range 100 65535
     default 300
+
+config LWIP_ESP_GRATUITOUS_ARP
+    bool "Send gratuitous ARP periodically"
+    default n
+    help
+        Enable this option allows to send gratuitous ARP periodically.
+
+        This option solve the compatibility issues.If the ARP table of the AP is old, and the AP
+        doesn't send ARP request to update it's ARP table, this will lead to the STA sending IP packet fail.
+        Thus we send gratuitous ARP periodically to let AP update it's ARP table.
+
+config LWIP_GARP_TMR_INTERVAL
+    int "GARP timer interval(seconds)"
+    default 60
+    depends on LWIP_ESP_GRATUITOUS_ARP
+    help
+        Set the timer interval for gratuitous ARP. The default value is 60s
 
 endmenu # LWIP ARP
 
@@ -229,6 +247,13 @@ config LWIP_DHCPS_MAX_STATION_NUM
         After this number is exceeded, DHCP server removes of the oldest device
         from it's address pool, without notification.
 
+config LWIP_DHCP_DISCOVER_RETRANSMISSION_INTERVAL
+    int "DHCP discover retransmission interval (milliseconds)"
+    default 250 # 4 * default retransmission interval
+    range 250 1000
+    help
+        Set time interval of retransmissions of DHCP discover.
+
 endmenu #DHCP
 
 menuconfig LWIP_AUTOIP
@@ -275,10 +300,18 @@ config LWIP_IGMP
     bool "Enable IGMP module"
     default y
 
+config ESP_DNS
+    bool "Enable espressif advansed DNS"
+    default y
+    help
+        Enable this option, espressif advansed DNS functions will be enable. User can set the
+        reserved DNS server(its index is DNS_FALLBACK_SERVER_INDEX) which will not be changed by DHCP.
+
 config DNS_MAX_SERVERS
     int "The maximum of DNS servers"
-    range 1 5
-    default 2
+    range 2 5
+    default 3 if ESP_DNS
+    default 2 if !ESP_DNS
 
 menuconfig LWIP_NETIF_LOOPBACK
     bool "Enable per-interface loopback"
@@ -407,7 +440,7 @@ config TCP_RECVMBOX_SIZE
 
 config TCP_QUEUE_OOSEQ
     bool "Queue incoming out-of-order segments"
-    default n
+    default y
     help
         Queue incoming out-of-order segments for later use.
 
@@ -727,6 +760,11 @@ config LWIP_THREAD_SAFE_DEBUG
 
 config LWIP_PBUF_CACHE_DEBUG
     bool "Enable debugging for LWIP pbuf cache."
+    depends on LWIP_DEBUG
+    default n
+
+config LWIP_TCP_TXRX_PBUF_DEBUG
+    bool "Enable debugging for TCP TX/RX data."
     depends on LWIP_DEBUG
     default n
 

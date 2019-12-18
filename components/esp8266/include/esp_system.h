@@ -21,17 +21,13 @@
 
 #include "sdkconfig.h"
 
+#include "esp_idf_version.h"
+
 #ifdef __cplusplus
 extern "C" {
 #endif
 
-#if CONFIG_CRYSTAL_USED_26MHZ
 #define CRYSTAL_USED 26
-#endif
-
-#if CONFIG_CRYSTAL_USED_40MHZ
-#define CRYSTAL_USED 40
-#endif
 
 typedef enum {
     ESP_MAC_WIFI_STA,
@@ -123,9 +119,9 @@ esp_err_t esp_derive_local_mac(uint8_t* local_mac, const uint8_t* universal_mac)
  * @brief CPU frequency values
  */
 typedef enum {
-    RTC_CPU_FREQ_80M = 1,       //!< 80 MHz
-    RTC_CPU_FREQ_160M = 2,      //!< 160 MHz
-} rtc_cpu_freq_t;
+    ESP_CPU_FREQ_80M = 1,       //!< 80 MHz
+    ESP_CPU_FREQ_160M = 2,      //!< 160 MHz
+} esp_cpu_freq_t;
 
 /**
  * @brief Switch CPU frequency
@@ -137,7 +133,7 @@ typedef enum {
  *
  * @param cpu_freq  new CPU frequency
  */
-void rtc_clk_cpu_freq_set(rtc_cpu_freq_t cpu_freq);
+void esp_set_cpu_freq(esp_cpu_freq_t cpu_freq);
 
 /**
   * @brief  Reset to default settings.
@@ -182,11 +178,14 @@ uint32_t esp_get_minimum_free_heap_size( void );
 uint32_t esp_random(void);
 
 /**
- * Get IDF version
+ * @brief Fill a buffer with random bytes from hardware RNG
  *
- * @return constant string from IDF_VER
+ * @note This function has the same restrictions regarding available entropy as esp_random()
+ *
+ * @param buf Pointer to buffer to fill with random numbers.
+ * @param len Length of buffer in bytes
  */
-const char* esp_get_idf_version(void);
+void esp_fill_random(void *buf, size_t len);
 
 typedef enum {
     FLASH_SIZE_4M_MAP_256_256 = 0,  /**<  Flash size : 4Mbits. Map : 256KBytes + 256KBytes */
@@ -208,13 +207,17 @@ typedef enum {
  * @brief Chip models
  */
 typedef enum {
-    CHIP_ESP8266 = 1, //!< ESP8266
+    CHIP_ESP8266 = 0, //!< ESP8266
+    CHIP_ESP32 = 1, //!< ESP32
 } esp_chip_model_t;
 
 /**
  * Chip feature flags, used in esp_chip_info_t
  */
-#define CHIP_FEATURE_WIFI_BGN       (1 << 0)
+#define CHIP_FEATURE_EMB_FLASH      BIT(0)      //!< Chip has embedded flash memory
+#define CHIP_FEATURE_WIFI_BGN       BIT(1)      //!< Chip has 2.4GHz WiFi
+#define CHIP_FEATURE_BLE            BIT(4)      //!< Chip has Bluetooth LE
+#define CHIP_FEATURE_BT             BIT(5)      //!< Chip has Bluetooth Classic
 
 /**
  * @brief The structure represents information about the chip
@@ -237,8 +240,6 @@ void esp_chip_info(esp_chip_info_t* out_info);
   *
   *         Flash map depends on the selection when compiling, more details in document
   *         "2A-ESP8266__IOT_SDK_User_Manual"
-  *
-  * @param  null
   *
   * @return enum flash_size_map
   */

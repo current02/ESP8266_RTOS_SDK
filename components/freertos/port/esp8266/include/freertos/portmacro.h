@@ -42,7 +42,7 @@ extern "C" {
 #include    "xtensa_rtos.h"
 
 #if defined(configUSE_NEWLIB_REENTRANT) && configUSE_NEWLIB_REENTRANT == 1
-#if defined(CONFIG_NEWLIB_LIBRARY_LEVEL_NORMAL) || defined(CONFIG_NEWLIB_LIBRARY_LEVEL_NANO)
+#ifndef CONFIG_NEWLIB_LIBRARY_CUSTOMER
 #include "esp_newlib.h"
 
 #define _impure_ptr _global_impure_ptr
@@ -88,7 +88,7 @@ typedef unsigned int INT32U;
 /*-----------------------------------------------------------*/
 
 /* Scheduler utilities. */
-extern void PendSV(char req);
+extern void PendSV(int req);
 //#define portYIELD()	vPortYield()
 #define portYIELD()	PendSV(1)
 
@@ -158,8 +158,6 @@ void        _xt_user_exit           (void);
 void        _xt_tick_timer_init   (void);
 void        _xt_isr_unmask       (uint32_t unmask);
 void        _xt_isr_mask       (uint32_t mask);
-uint32_t    _xt_read_ints (void);
-void        _xt_clear_ints(uint32_t mask);
 
 /* interrupt related */
 typedef void (* _xt_isr)(void *arg);
@@ -209,6 +207,15 @@ void esp_increase_tick_cnt(const TickType_t ticks);
 
 extern void esp_vApplicationIdleHook( void );
 extern void esp_vApplicationTickHook( void );
+
+extern const uint32_t g_esp_ticks_per_us;
+
+/*
+ * @brief Get FreeRTOS system idle ticks
+ *
+ * @return idle ticks
+ */
+TickType_t prvGetExpectedIdleTime(void);
 
 #ifdef __cplusplus
 }

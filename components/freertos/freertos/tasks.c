@@ -1959,7 +1959,7 @@ BaseType_t xReturn;
 		/* The Idle task is being created using dynamically allocated RAM. */
 		xReturn = xTaskCreate(	prvIdleTask,
 								configIDLE_TASK_NAME,
-								configMINIMAL_STACK_SIZE,
+								configIDLE_TASK_STACK_SIZE,
 								( void * ) NULL,
 								( tskIDLE_PRIORITY | portPRIVILEGE_BIT ),
 								&xIdleTaskHandle ); /*lint !e961 MISRA exception, justified as it is not a redundant explicit cast to all supported compilers. */
@@ -2522,7 +2522,7 @@ implementations require configUSE_TICKLESS_IDLE to be set to a value other than
 1. */
 #if ( configUSE_TICKLESS_IDLE != 0 )
 
-	void vTaskStepTick( const TickType_t xTicksToJump )
+	void IRAM_ATTR vTaskStepTick( const TickType_t xTicksToJump )
 	{
 		/* Correct the tick count value after a period during which the tick
 		was suppressed.  Note this does *not* call the tick hook function for

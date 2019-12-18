@@ -4,6 +4,12 @@
 COMPONENT_KCONFIGS := $(foreach component,$(COMPONENT_PATHS),$(wildcard $(component)/Kconfig))
 COMPONENT_KCONFIGS_PROJBUILD := $(foreach component,$(COMPONENT_PATHS),$(wildcard $(component)/Kconfig.projbuild))
 
+ifeq ($(OS),Windows_NT)
+# kconfiglib requires Windows-style paths for kconfig files
+COMPONENT_KCONFIGS := $(shell cygpath -m $(COMPONENT_KCONFIGS))
+COMPONENT_KCONFIGS_PROJBUILD := $(shell cygpath -m $(COMPONENT_KCONFIGS_PROJBUILD))
+endif
+
 #For doing make menuconfig etc
 KCONFIG_TOOL_DIR=$(IDF_PATH)/tools/kconfig
 
@@ -15,11 +21,11 @@ SDKCONFIG ?= $(PROJECT_PATH)/sdkconfig
 # overrides (usually used for esp-idf examples)
 SDKCONFIG_DEFAULTS ?= $(PROJECT_PATH)/sdkconfig.defaults
 
-# Workaround to run make parallel (-j). mconf and conf cannot be made simultaneously
-$(KCONFIG_TOOL_DIR)/mconf: $(KCONFIG_TOOL_DIR)/conf
+# Workaround to run make parallel (-j). mconf-idf and conf-idf cannot be made simultaneously
+$(KCONFIG_TOOL_DIR)/mconf-idf: $(KCONFIG_TOOL_DIR)/conf-idf
 
 # reset MAKEFLAGS as the menuconfig makefile uses implicit compile rules
-$(KCONFIG_TOOL_DIR)/mconf $(KCONFIG_TOOL_DIR)/conf: $(wildcard $(KCONFIG_TOOL_DIR)/*.c)
+$(KCONFIG_TOOL_DIR)/mconf-idf $(KCONFIG_TOOL_DIR)/conf-idf: $(wildcard $(KCONFIG_TOOL_DIR)/*.c)
 	MAKEFLAGS="" CC=$(HOSTCC) LD=$(HOSTLD) \
 	$(MAKE) -C $(KCONFIG_TOOL_DIR)
 
@@ -36,13 +42,30 @@ $(SDKCONFIG): defconfig
 endif
 endif
 
-# macro for the commands to run kconfig tools conf or mconf.
+# macro for running confgen.py
+define RunConfGen
+	mkdir -p $(BUILD_DIR_BASE)/include/config
+	$(PYTHON) $(IDF_PATH)/tools/kconfig_new/confgen.py \
+		--kconfig $(IDF_PATH)/Kconfig \
+		--config $(SDKCONFIG) \
+		--env "COMPONENT_KCONFIGS=$(strip $(COMPONENT_KCONFIGS))" \
+		--env "COMPONENT_KCONFIGS_PROJBUILD=$(strip $(COMPONENT_KCONFIGS_PROJBUILD))" \
+		--env "IDF_CMAKE=n" \
+		--output config ${SDKCONFIG} \
+		--output makefile $(SDKCONFIG_MAKEFILE) \
+		--output header $(BUILD_DIR_BASE)/include/sdkconfig.h
+endef
+
+# macro for the commands to run kconfig tools conf-idf or mconf-idf.
 # $1 is the name (& args) of the conf tool to run
+# Note: Currently only mconf-idf is used for compatibility with the CMake build system. The header file used is also
+# the same.
 define RunConf
 	mkdir -p $(BUILD_DIR_BASE)/include/config
 	cd $(BUILD_DIR_BASE); KCONFIG_AUTOHEADER=$(abspath $(BUILD_DIR_BASE)/include/sdkconfig.h) \
 	COMPONENT_KCONFIGS="$(COMPONENT_KCONFIGS)" KCONFIG_CONFIG=$(SDKCONFIG) \
 	COMPONENT_KCONFIGS_PROJBUILD="$(COMPONENT_KCONFIGS_PROJBUILD)" \
+	IDF_CMAKE=n \
 	$(KCONFIG_TOOL_DIR)/$1 $(IDF_PATH)/Kconfig
 endef
 
@@ -58,7 +81,7 @@ ifndef MAKE_RESTARTS
 # depend on any prerequisite that may cause a make restart as part of
 # the prerequisite's own recipe.
 
-menuconfig: $(KCONFIG_TOOL_DIR)/mconf
+menuconfig: $(KCONFIG_TOOL_DIR)/mconf-idf | check_python_dependencies
 	$(summary) MENUCONFIG
 ifdef BATCH_BUILD
 	@echo "Can't run interactive configuration inside non-interactive build process."
@@ -67,25 +90,26 @@ ifdef BATCH_BUILD
 	@echo "See esp-idf documentation for more details."
 	@exit 1
 else
-	$(call RunConf,mconf)
+	$(call RunConfGen)
+	# RunConfGen before mconf-idf ensures that deprecated options won't be ignored (they've got renamed)
+	$(call RunConf,mconf-idf)
+	# RunConfGen after mconf-idf ensures that deprecated options are appended to $(SDKCONFIG) for backward compatibility
+	$(call RunConfGen)
 endif
 
 # defconfig creates a default config, based on SDKCONFIG_DEFAULTS if present
-defconfig: $(KCONFIG_TOOL_DIR)/conf
+defconfig: | check_python_dependencies
 	$(summary) DEFCONFIG
 ifneq ("$(wildcard $(SDKCONFIG_DEFAULTS))","")
 	cat $(SDKCONFIG_DEFAULTS) >> $(SDKCONFIG)  # append defaults to sdkconfig, will override existing values
 endif
-	$(call RunConf,conf --olddefconfig)
+	$(call RunConfGen)
 
 # if neither defconfig or menuconfig are requested, use the GENCONFIG rule to
 # ensure generated config files are up to date
-$(SDKCONFIG_MAKEFILE) $(BUILD_DIR_BASE)/include/sdkconfig.h: $(KCONFIG_TOOL_DIR)/conf $(SDKCONFIG) $(COMPONENT_KCONFIGS) $(COMPONENT_KCONFIGS_PROJBUILD) | $(call prereq_if_explicit,defconfig) $(call prereq_if_explicit,menuconfig)
+$(SDKCONFIG_MAKEFILE) $(BUILD_DIR_BASE)/include/sdkconfig.h: $(SDKCONFIG) $(COMPONENT_KCONFIGS) $(COMPONENT_KCONFIGS_PROJBUILD) | check_python_dependencies $(call prereq_if_explicit,defconfig) $(call prereq_if_explicit,menuconfig)
 	$(summary) GENCONFIG
-ifdef BATCH_BUILD  # can't prompt for new config values like on terminal
-	$(call RunConf,conf --olddefconfig)
-endif
-	$(call RunConf,conf --silentoldconfig)
+	$(call RunConfGen)
 	touch $(SDKCONFIG_MAKEFILE) $(BUILD_DIR_BASE)/include/sdkconfig.h  # ensure newer than sdkconfig
 
 else  # "$(MAKE_RESTARTS)" != ""

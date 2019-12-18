@@ -9,7 +9,7 @@ config LIBSODIUM_USE_MBEDTLS_SHA
         around mbedTLS for SHA256 & SHA512 operations.
 
         This saves some code size if mbedTLS is also used. However it
-        is incompatible with hardware SHA acceleration (due to the
+        is incompatible with Espressif SHA (due to the
         way libsodium's API manages SHA state).
 
 endmenu # libsodium

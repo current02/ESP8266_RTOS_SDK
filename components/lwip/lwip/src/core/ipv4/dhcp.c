@@ -657,6 +657,12 @@ dhcp_handle_ack(struct netif *netif)
 #if LWIP_DHCP_PROVIDE_DNS_SERVERS
   /* DNS servers */
   for (n = 0; (n < LWIP_DHCP_PROVIDE_DNS_SERVERS) && dhcp_option_given(dhcp, DHCP_OPTION_IDX_DNS_SERVER + n); n++) {
+#if ESP_DNS
+    if (n == DNS_FALLBACK_SERVER_INDEX) {
+        continue;
+    }
+#endif
+
     ip_addr_t dns_addr;
     ip_addr_set_ip4_u32(&dns_addr, lwip_htonl(dhcp_get_option_value(dhcp, DHCP_OPTION_IDX_DNS_SERVER + n)));
     dns_setserver(n, &dns_addr);
@@ -1001,7 +1007,16 @@ dhcp_discover(struct netif *netif)
     autoip_start(netif);
   }
 #endif /* LWIP_DHCP_AUTOIP_COOP */
+
+#if ESP_DHCP
+/** 
+ * Since for embedded devices it's not that hard to miss a discover packet, so lower
+ * the discover retry backoff time from (2,4,8,16,32,60,60)s to (500m,1,2,4,8,15,15)s.
+ */
+  msecs = (dhcp->tries < 6 ? 1 << dhcp->tries : 60) * LWIP_DHCP_DISCOVER_RETRANSMISSION_INTERVAL;
+#else
   msecs = (dhcp->tries < 6 ? 1 << dhcp->tries : 60) * 1000;
+#endif
   dhcp->request_timeout = (msecs + DHCP_FINE_TIMER_MSECS - 1) / DHCP_FINE_TIMER_MSECS;
   LWIP_DEBUGF(DHCP_DEBUG | LWIP_DBG_TRACE | LWIP_DBG_STATE, ("dhcp_discover(): set request timeout %"U16_F" msecs\n", msecs));
   return result;
@@ -1947,5 +1962,24 @@ dhcp_supplied_address(const struct netif *netif)
   }
   return 0;
 }
+
+#if ESP_LWIP
+/** Set callback for dhcp, reserved parameter for future use.
+ *
+ * @param netif the netif from which to remove the struct dhcp
+ * @param cb    callback for dhcp
+ */
+void dhcp_set_cb(struct netif *netif, void (*cb)(struct netif*))
+{
+  struct dhcp *dhcp;
+  dhcp = netif_dhcp_data(netif);
+
+  LWIP_ASSERT("netif != NULL", netif != NULL);
+
+  if (dhcp != NULL) {
+    dhcp->cb = cb;
+  }
+}
+#endif
 
 #endif /* LWIP_IPV4 && LWIP_DHCP */

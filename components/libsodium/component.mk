@@ -1,4 +1,3 @@
-COMPONENT_SUBMODULES += libsodium
 
 # Common root directory for all source directories
 LSRC := libsodium/src/libsodium
@@ -58,7 +57,7 @@ COMPONENT_SRCDIRS += \
 	$(LSRC)/randombytes \
 	$(LSRC)/sodium
 
-ifdef CONFIG_SSL_USING_MBEDTLS
+ifdef CONFIG_LIBSODIUM_USE_MBEDTLS_SHA
 COMPONENT_SRCDIRS += port/crypto_hash_mbedtls
 else
 COMPONENT_SRCDIRS += \

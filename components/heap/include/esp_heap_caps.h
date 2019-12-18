@@ -34,6 +34,8 @@ extern "C" {
 #define MALLOC_CAP_32BIT	    (1 << 1)    ///< Memory must allow for aligned 32-bit data accesses
 #define MALLOC_CAP_8BIT	        (1 << 2)    ///< Memory must allow for 8-bit data accesses
 #define MALLOC_CAP_DMA		    (1 << 3)    ///< Memory must be able to accessed by DMA
+#define MALLOC_CAP_INTERNAL     (1 << 11)   ///< Just for code compatibility
+#define MALLOC_CAP_SPIRAM       (1 << 10)   ///< Just for code compatibility
 
 #define MEM_HEAD_SIZE           sizeof(mem_blk_t)   ///< Size of first type memory block
 #define MEM2_HEAD_SIZE          sizeof(mem2_blk_t)  ///< Size of second type memory block
@@ -131,7 +133,7 @@ void *_heap_caps_malloc(size_t size, uint32_t caps, const char *file, size_t lin
  *
  * @param ptr Pointer to memory previously returned from heap_caps_(m/c/re/z)alloc(). Can be NULL.
  */
-#define heap_caps_free(p) _heap_caps_free(p, __ESP_FILE__, __LINE__)
+#define heap_caps_free(ptr) _heap_caps_free(ptr, __ESP_FILE__, __LINE__)
 
 void _heap_caps_free(void *ptr, const char *file, size_t line);
 
@@ -179,7 +181,6 @@ void *_heap_caps_realloc(void *mem, size_t newsize, uint32_t caps, const char *f
  *
  * In IDF, ``calloc(c, s)`` is equivalent to ``heap_caps_calloc(c, s, MALLOC_CAP_32BIT)``.
  *
- * @param n Number of continuing chunks of memory to allocate
  * @param size Size, in bytes, of a chunk of memory to allocate
  * @param caps Bitwise OR of MALLOC_CAP_* flags indicating the type of memory to be returned
  *

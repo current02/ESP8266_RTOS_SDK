@@ -13,9 +13,20 @@ Toolchain Setup
 
 The quick setup is to download the Windows all-in-one toolchain & MSYS2 zip file from dl.espressif.com:
 
-https://dl.espressif.com/dl/esp32_win32_msys2_environment_and_toolchain-20180110.zip
+https://dl.espressif.com/dl/esp32_win32_msys2_environment_and_toolchain-20181001.zip
 
 Unzip the zip file to ``C:\`` (or some other location, but this guide assumes ``C:\``) and it will create an ``msys32`` directory with a pre-prepared environment.
+
+Download the toolchain for the ESP8266
+--------------------------------------
+
+v5.2.0
+
+    https://dl.espressif.com/dl/xtensa-lx106-elf-win32-1.22.0-100-ge567ec7-5.2.0.zip
+
+If you are still using old version SDK(< 3.0), please use toolchain v4.8.5, as following:
+
+    https://dl.espressif.com/dl/xtensa-lx106-elf-win32-1.22.0-88-gde0bdc1-4.8.5.tar.gz
 
 
 Check it Out

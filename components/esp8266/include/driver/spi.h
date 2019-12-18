@@ -36,7 +36,7 @@ extern "C" {
 #define SPI_BYTE_ORDER_LSB_FIRST 0
 
 /* SPI default bus interface parameter definition */
-#define SPI_DEFAULT_INTERFACE   0x1F0    /* CS_EN:1, MISO_EN:1, MOSI_EN:1, BYTE_TX_ORDER:1, BYTE_TX_ORDER:1, BIT_RX_ORDER:0, BIT_TX_ORDER:0, CPHA:0, CPOL:0 */
+#define SPI_DEFAULT_INTERFACE   0x1C0    /* CS_EN:1, MISO_EN:1, MOSI_EN:1, BYTE_TX_ORDER:0, BYTE_TX_ORDER:0, BIT_RX_ORDER:0, BIT_TX_ORDER:0, CPHA:0, CPOL:0 */
 
 /* SPI master default interrupt enable definition */
 #define SPI_MASTER_DEFAULT_INTR_ENABLE 0x10    /* TRANS_DONE: true, WRITE_STATUS: false, READ_STATUS: false, WRITE_BUFFER: false, READ_BUFFER: false */
@@ -105,14 +105,14 @@ typedef enum {
  */
 typedef union {
     struct {
-        uint32_t read_buffer:  1;
-        uint32_t write_buffer: 1;
-        uint32_t read_status:  1;
-        uint32_t write_status: 1;
-        uint32_t trans_done:   1;
-        uint32_t reserved5:    27;
-    };
-    uint32_t val;
+        uint32_t read_buffer:  1;    /*!< configurate intterrupt to enable reading */ 
+        uint32_t write_buffer: 1;    /*!< configurate intterrupt to enable writing */ 
+        uint32_t read_status:  1;    /*!< configurate intterrupt to enable reading status */ 
+        uint32_t write_status: 1;    /*!< configurate intterrupt to enable writing status */ 
+        uint32_t trans_done:   1;    /*!< configurate intterrupt to enable transmission done */ 
+        uint32_t reserved5:    27;   /*!< reserved */
+    };                               /*!< not filled */
+    uint32_t val;                    /*!< union fill */ 
 } spi_intr_enable_t;
 
 /**
@@ -130,38 +130,38 @@ typedef union {
         uint32_t miso_en:       1;   /*!< MISO line enable */
         uint32_t cs_en:         1;   /*!< CS line enable */
         uint32_t reserved9:    23;   /*!< resserved */
-    };
-    uint32_t val;
+    };                               /*!< not filled */
+    uint32_t val;                    /*!< union fill */ 
 } spi_interface_t;
 
 /**
  * @brief SPI transmission parameter structure type definition
  */
 typedef struct {
-    uint16_t *cmd;
-    uint32_t *addr;
-    uint32_t *mosi;
-    uint32_t *miso;
+    uint16_t *cmd;                  /*!< SPI transmission command */  
+    uint32_t *addr;                 /*!< SPI transmission address */  
+    uint32_t *mosi;                 /*!< SPI transmission MOSI buffer, in order to improve the transmission efficiency, it is recommended that the external incoming data is (uint32_t *) type data, do not use other type data. */  
+    uint32_t *miso;                 /*!< SPI transmission MISO buffer, in order to improve the transmission efficiency, it is recommended that the external incoming data is (uint32_t *) type data, do not use other type data. */  
     union {
         struct {
-            uint32_t cmd:   5;
-            uint32_t addr:  7;
-            uint32_t mosi: 10;
-            uint32_t miso: 10;
-        };
-        uint32_t val;
-    } bits;
+            uint32_t cmd:   5;      /*!< SPI transmission command bits */  
+            uint32_t addr:  7;      /*!< SPI transmission address bits */ 
+            uint32_t mosi: 10;      /*!< SPI transmission MOSI buffer bits */  
+            uint32_t miso: 10;      /*!< SPI transmission MISO buffer bits */ 
+        };                          /*!< not filled */
+        uint32_t val;               /*!< union fill */ 
+    } bits;                         /*!< SPI transmission packet members' bits */  
 } spi_trans_t;
 
 /**
  * @brief SPI initialization parameter structure type definition
  */
 typedef struct {
-    spi_interface_t interface;
-    spi_intr_enable_t intr_enable;
-    spi_event_callback_t event_cb;
-    spi_mode_t mode;
-    spi_clk_div_t clk_div;
+    spi_interface_t interface;      /*!< SPI bus interface */  
+    spi_intr_enable_t intr_enable;  /*!< check if enable SPI interrupt */  
+    spi_event_callback_t event_cb;  /*!< SPI interrupt event callback */  
+    spi_mode_t mode;                /*!< SPI mode */  
+    spi_clk_div_t clk_div;          /*!< SPI clock divider */     
 } spi_config_t;
 
 /**
@@ -403,14 +403,14 @@ esp_err_t spi_slave_set_status(spi_host_t host, uint32_t *status);
   *     - CSPI_HOST SPI0
   *     - HSPI_HOST SPI1
   *
-  * @param trans Transmission parameter structure
+  * @param trans Pointer to transmission parameter structure
   *
   * @return
   *     - ESP_OK Success
   *     - ESP_ERR_INVALID_ARG Parameter error
   *     - ESP_FAIL spi has not been initialized yet
   */
-esp_err_t spi_trans(spi_host_t host, spi_trans_t trans);
+esp_err_t spi_trans(spi_host_t host, spi_trans_t *trans);
 
 /**
   * @brief Deinit the spi

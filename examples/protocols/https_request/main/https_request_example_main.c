@@ -38,10 +38,6 @@
 #include "lwip/netdb.h"
 #include "lwip/dns.h"
 
-#if CONFIG_SSL_USING_WOLFSSL
-#include "lwip/apps/sntp.h"
-#endif
-
 #include "esp_tls.h"
 
 /* The examples use simple WiFi configuration that you can set via
@@ -88,6 +84,9 @@ extern const uint8_t server_root_cert_pem_end[]   asm("_binary_server_root_cert_
     
 static esp_err_t event_handler(void *ctx, system_event_t *event)
 {
+    /* For accessing reason codes in case of disconnection */
+    system_event_info_t *info = &event->event_info;
+
     switch(event->event_id) {
     case SYSTEM_EVENT_STA_START:
         esp_wifi_connect();
@@ -96,8 +95,11 @@ static esp_err_t event_handler(void *ctx, system_event_t *event)
         xEventGroupSetBits(wifi_event_group, CONNECTED_BIT);
         break;
     case SYSTEM_EVENT_STA_DISCONNECTED:
-        /* This is a workaround as ESP32 WiFi libs don't currently
-           auto-reassociate. */
+        ESP_LOGE(TAG, "Disconnect reason : %d", info->disconnected.reason);
+        if (info->disconnected.reason == WIFI_REASON_BASIC_RATE_NOT_SUPPORT) {
+            /*Switch to 802.11 bgn mode */
+            esp_wifi_set_protocol(ESP_IF_WIFI_STA, WIFI_PROTOCAL_11B | WIFI_PROTOCAL_11G | WIFI_PROTOCAL_11N);
+        }
         esp_wifi_connect();
         xEventGroupClearBits(wifi_event_group, CONNECTED_BIT);
         break;
@@ -127,49 +129,10 @@ static void initialise_wifi(void)
     ESP_ERROR_CHECK( esp_wifi_start() );
 }
 
-#if CONFIG_SSL_USING_WOLFSSL
-static void get_time()
-{
-    struct timeval now;
-    int sntp_retry_cnt = 0;
-    int sntp_retry_time = 0;
-
-    sntp_setoperatingmode(0);
-    sntp_setservername(0, "pool.ntp.org");
-    sntp_init();
-
-    while (1) {
-        for (int32_t i = 0; (i < (SNTP_RECV_TIMEOUT / 100)) && now.tv_sec < 1525952900; i++) {
-            vTaskDelay(100 / portTICK_RATE_MS);
-            gettimeofday(&now, NULL);
-        }
-
-        if (now.tv_sec < 1525952900) {
-            sntp_retry_time = SNTP_RECV_TIMEOUT << sntp_retry_cnt;
-
-            if (SNTP_RECV_TIMEOUT << (sntp_retry_cnt + 1) < SNTP_RETRY_TIMEOUT_MAX) {
-                sntp_retry_cnt ++;
-            }
-
-            printf("SNTP get time failed, retry after %d ms\n", sntp_retry_time);
-            vTaskDelay(sntp_retry_time / portTICK_RATE_MS);
-        } else {
-            printf("SNTP get time success\n");
-            break;
-        }
-    }
-}
-#endif
-
 static void https_get_task(void *pvParameters)
 {
     char buf[512];
     int ret, len;
-
-#if CONFIG_SSL_USING_WOLFSSL
-    /* CA date verification need system time */
-    get_time();
-#endif
 
     while(1) {
         /* Wait for the callback to set the CONNECTED_BIT in the
@@ -183,7 +146,7 @@ static void https_get_task(void *pvParameters)
             .cacert_pem_bytes = server_root_cert_pem_end - server_root_cert_pem_start,
         };
         
-        struct esp_tls *tls = esp_tls_conn_new(WEB_SERVER, strlen(WEB_SERVER), WEB_PORT, &cfg);
+        struct esp_tls *tls = esp_tls_conn_http_new(WEB_URL, &cfg);
         
         if(tls != NULL) {
             ESP_LOGI(TAG, "Connection established...");
@@ -200,12 +163,7 @@ static void https_get_task(void *pvParameters)
             if (ret >= 0) {
                 ESP_LOGI(TAG, "%d bytes written", ret);
                 written_bytes += ret;
-            } else if
-#if CONFIG_SSL_USING_MBEDTLS
-            (ret != MBEDTLS_ERR_SSL_WANT_READ  && ret != MBEDTLS_ERR_SSL_WANT_WRITE)
-#else
-            (ret != WOLFSSL_ERROR_WANT_READ  && ret != WOLFSSL_ERROR_WANT_WRITE)
-#endif
+            } else if (ret != ESP_TLS_ERR_SSL_WANT_READ  && ret != ESP_TLS_ERR_SSL_WANT_WRITE)
             {
                 ESP_LOGE(TAG, "esp_tls_conn_write  returned 0x%x", ret);
                 goto exit;

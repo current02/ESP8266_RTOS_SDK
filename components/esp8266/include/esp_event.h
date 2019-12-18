@@ -23,6 +23,11 @@
 #include "lwip/ip_addr.h"
 #include "tcpip_adapter.h"
 
+#include "freertos/FreeRTOS.h"
+#include "freertos/task.h"
+#include "freertos/queue.h"
+#include "freertos/semphr.h"
+
 #ifdef __cplusplus
 extern "C" {
 #endif
@@ -177,6 +182,17 @@ esp_err_t esp_event_process_default(system_event_t *event);
   *
   */
 void esp_event_set_default_wifi_handlers();
+
+/**
+ * @brief Create default event loop
+ *
+ * @return
+ *  - ESP_OK: Success
+ *  - ESP_ERR_NO_MEM: Cannot allocate memory for event loops list
+ *  - ESP_FAIL: Failed to create task loop
+ *  - Others: Fail
+ */
+esp_err_t esp_event_loop_create_default(void);
 
 #ifdef __cplusplus
 }

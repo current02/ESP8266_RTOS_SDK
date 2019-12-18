@@ -58,7 +58,11 @@
 #define configCPU_CLOCK_HZ			( ( unsigned long ) 80000000 )	
 #define configTICK_RATE_HZ			( ( portTickType ) CONFIG_FREERTOS_HZ )
 #define configMAX_PRIORITIES		15
+#if CONFIG_ESP8266_WIFI_DEBUG_LOG_ENABLE
+#define configMINIMAL_STACK_SIZE	( ( unsigned short ) 2048 )
+#else
 #define configMINIMAL_STACK_SIZE	( ( unsigned short ) 768 )
+#endif
 //#define configTOTAL_HEAP_SIZE		( ( size_t ) ( 17 * 1024 ) )
 #define configMAX_TASK_NAME_LEN		( 16 )
 
@@ -78,6 +82,7 @@
 #define configTIMER_TASK_PRIORITY ( tskIDLE_PRIORITY + 2 )
 #define configTIMER_QUEUE_LENGTH (10)
 #define configTIMER_TASK_STACK_DEPTH  ( ( unsigned short ) CONFIG_FREERTOS_TIMER_STACKSIZE )
+#define INCLUDE_xTimerPendFunctionCall 1
 #endif
 
 /* Co-routine definitions. */
@@ -98,6 +103,8 @@ to exclude the API function. */
 /*set the #define for debug info*/
 #define INCLUDE_xTaskGetCurrentTaskHandle 1
 #define INCLUDE_uxTaskGetStackHighWaterMark 1
+
+#define INCLUDE_xSemaphoreGetMutexHolder    1
 
 /* This is the raw value as per the Cortex-M3 NVIC.  Values can be 255
 (lowest) to 0 (1?) (highest). */
@@ -154,8 +161,11 @@ NVIC value of 255. */
 #define portCONFIGURE_TIMER_FOR_RUN_TIME_STATS()
 
 #ifdef CONFIG_FREERTOS_RUN_TIME_STATS_USING_CPU_CLK
+#ifndef __ASSEMBLER__
+extern uint64_t g_esp_os_cpu_clk;
+#define portGET_RUN_TIME_COUNTER_VALUE()  g_esp_os_cpu_clk
+#endif
 /* Fine resolution time */
-#define portGET_RUN_TIME_COUNTER_VALUE()  xthal_get_ccount()
 #elif defined(CONFIG_FREERTOS_RUN_TIME_STATS_USING_ESP_TIMER)
 /* Coarse resolution time (us) */
 #ifndef __ASSEMBLER__
@@ -167,6 +177,10 @@ uint32_t esp_get_time(void);
 #endif /* CONFIG_FREERTOS_GENERATE_RUN_TIME_STATS */
 
 #define traceINCREASE_TICK_COUNT(_ticks)    esp_increase_tick_cnt(_ticks)
+
+#ifndef configIDLE_TASK_STACK_SIZE
+#define configIDLE_TASK_STACK_SIZE CONFIG_FREERTOS_IDLE_TASK_STACKSIZE
+#endif /* configIDLE_TASK_STACK_SIZE */
 
 #endif /* FREERTOS_CONFIG_H */
 
